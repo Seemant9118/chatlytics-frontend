@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Loader2 } from 'lucide-react';
+import { Send, Loader2, Plus, Clock, Trash2, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { useChatStore } from '@/store/chatStore';
 import { processPrompt } from '@/services/mockApi';
 import { Message } from '@/types/analytics';
@@ -36,8 +37,21 @@ const MessageBubble = ({ message }: { message: Message }) => (
 
 export const ChatPanel = () => {
   const [input, setInput] = useState('');
-  const { messages, isLoading, addMessage, addComponent, setLoading } = useChatStore();
+  const { 
+    currentSession, 
+    chatHistory, 
+    isLoading, 
+    addMessage, 
+    addComponent, 
+    setLoading, 
+    startNewChat, 
+    loadChatSession, 
+    deleteFromHistory 
+  } = useChatStore();
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const messages = currentSession?.messages || [];
+  const components = currentSession?.components || [];
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -82,14 +96,95 @@ export const ChatPanel = () => {
     }
   };
 
+  const handleNewChat = () => {
+    startNewChat();
+    setInput('');
+  };
+
+  const formatChatDate = (date: Date) => {
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(new Date(date));
+  };
+
   return (
     <div className="chat-panel h-full flex flex-col">
       {/* Header */}
       <div className="p-4 border-b border-border">
-        <h2 className="text-lg font-semibold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-          Analytics Assistant
-        </h2>
-        <p className="text-sm text-muted-foreground mt-1">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-lg font-semibold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+            Analytics Assistant
+          </h2>
+          <div className="flex gap-2">
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Clock className="h-4 w-4" />
+                  History
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-80">
+                <SheetHeader>
+                  <SheetTitle>Chat History</SheetTitle>
+                </SheetHeader>
+                <ScrollArea className="mt-4 h-[calc(100vh-8rem)]">
+                  <div className="space-y-2">
+                    {chatHistory.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">No chat history yet</p>
+                      </div>
+                    ) : (
+                      chatHistory.map((session) => (
+                        <div
+                          key={session.id}
+                          className="p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors group"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <button
+                              onClick={() => loadChatSession(session.id)}
+                              className="flex-1 text-left"
+                            >
+                              <div className="font-medium text-sm truncate">
+                                {session.name}
+                              </div>
+                              <div className="text-xs text-muted-foreground mt-1">
+                                {formatChatDate(session.lastUpdated)}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {session.messages.length} messages, {session.components.length} charts
+                              </div>
+                            </button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => deleteFromHistory(session.id)}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity p-1 h-6 w-6"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </ScrollArea>
+              </SheetContent>
+            </Sheet>
+            <Button 
+              onClick={handleNewChat}
+              size="sm" 
+              className="gap-2 analytics-gradient"
+            >
+              <Plus className="h-4 w-4" />
+              New Chat
+            </Button>
+          </div>
+        </div>
+        <p className="text-sm text-muted-foreground">
           Ask me about employee performance, sales data, or revenue metrics
         </p>
       </div>

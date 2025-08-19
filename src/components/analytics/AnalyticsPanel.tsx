@@ -36,7 +36,8 @@ const ChartRenderer = ({ component }: { component: ChartComponent }) => {
 };
 
 export const AnalyticsPanel = () => {
-  const { components } = useChatStore();
+  const { currentSession } = useChatStore();
+  const components = currentSession?.components || [];
 
   return (
     <div className="analytics-panel h-full overflow-auto">

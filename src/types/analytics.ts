@@ -14,6 +14,15 @@ export interface ChartComponent {
   timestamp: Date;
 }
 
+export interface ChatSession {
+  id: string;
+  name: string;
+  messages: Message[];
+  components: ChartComponent[];
+  createdAt: Date;
+  lastUpdated: Date;
+}
+
 export interface EmployeeData {
   name: string;
   performance: number;
