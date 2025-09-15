@@ -72,7 +72,7 @@ export const AnalyticsPanel = () => {
               </div>
               
               <AnimatePresence>
-                {components.map((component) => (
+                {components.map((component: any) => (
                   <ChartRenderer key={component.id} component={component} />
                 ))}
               </AnimatePresence>

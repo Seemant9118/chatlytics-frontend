@@ -1,13 +1,13 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Loader2, Plus, Clock, Trash2, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { useChatStore } from '@/store/chatStore';
-import { processPrompt } from '@/services/mockApi';
 import { Message } from '@/types/analytics';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Clock, Loader2, MessageSquare, Plus, Send, Trash2 } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ChartComponent } from '../../types/analytics';
 
 const LoadingDots = () => (
   <div className="loading-dots">
@@ -36,17 +36,20 @@ const MessageBubble = ({ message }: { message: Message }) => (
 );
 
 export const ChatPanel = () => {
-  const [input, setInput] = useState('');
-  const { 
-    currentSession, 
-    chatHistory, 
-    isLoading, 
-    addMessage, 
-    addComponent, 
-    setLoading, 
-    startNewChat, 
-    loadChatSession, 
-    deleteFromHistory 
+  const [query, setQuery] = useState("");
+  const [result, setResult] = useState("");
+  const {
+    currentSession,
+    chatHistory,
+    isLoading,
+    addMessage,
+    removeMessage,
+    addComponent,
+    setLoading,
+    startNewChat,
+    loadChatSession,
+    deleteFromHistory,
+    addChatHistory,
   } = useChatStore();
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -59,46 +62,45 @@ export const ChatPanel = () => {
     }
   }, [messages]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || isLoading) return;
+  //   e.preventDefault();
+  //   if (!input.trim() || isLoading) return;
 
-    const userMessage = input.trim();
-    setInput('');
+  //   const userMessage = input.trim();
+  //   setInput('');
 
-    // Add user message
-    addMessage({ content: userMessage, type: 'user' });
+  //   // Add user message
+  //   addMessage({ content: userMessage, type: 'user' });
 
-    // Add loading AI message
-    const loadingId = Math.random().toString(36).substr(2, 9);
-    addMessage({ content: '', type: 'ai', isLoading: true });
+  //   // Add loading AI message
+  //   const loadingId = Math.random().toString(36).substr(2, 9);
+  //   addMessage({ content: '', type: 'ai', isLoading: true });
 
-    setLoading(true);
+  //   setLoading(true);
 
-    try {
-      const response = await processPrompt(userMessage);
-      
-      // Remove loading message and add actual response
-      const updatedMessages = messages.filter(m => !m.isLoading);
-      addMessage({ content: response.message, type: 'ai' });
+  //   try {
+  //     const response = await processPrompt(userMessage);
 
-      // Add component if provided
-      if (response.component) {
-        addComponent(response.component);
-      }
-    } catch (error) {
-      addMessage({ 
-        content: "I'm sorry, I encountered an error processing your request. Please try again.", 
-        type: 'ai' 
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  //     // Remove loading message and add actual response
+  //     const updatedMessages = messages.filter(m => !m.isLoading);
+  //     addMessage({ content: response.message, type: 'ai' });
+
+  //     // Add component if provided
+  //     if (response.component) {
+  //       addComponent(response.component);
+  //     }
+  //   } catch (error) {
+  //     addMessage({
+  //       content: "I'm sorry, I encountered an error processing your request. Please try again.",
+  //       type: 'ai'
+  //     });
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
   const handleNewChat = () => {
     startNewChat();
-    setInput('');
+    setQuery('');
   };
 
   const formatChatDate = (date: Date) => {
@@ -109,6 +111,106 @@ export const ChatPanel = () => {
       minute: '2-digit'
     }).format(new Date(date));
   };
+
+  function detectComponentType(query: string, data: any): ChartComponent["type"] {
+    const q = query.toLowerCase();
+
+    if (q.includes("trend") || q.includes("growth") || q.includes("over time")) {
+      return "line-chart";
+    }
+    if (q.includes("distribution") || q.includes("compare") || q.includes("by ")) {
+      return "bar-chart";
+    }
+    if (q.includes("list") || q.includes("show all") || Array.isArray(data)) {
+      return "table";
+    }
+    if (q.includes("total") || q.includes("summary") || typeof data === "number") {
+      return "metric-card";
+    }
+
+    return "table"; // fallback
+  }
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!query.trim() || isLoading) return;
+
+    const userMessage = query.trim();
+    setQuery('');
+
+    // Add user message
+    addMessage({ content: userMessage, type: 'user' });
+
+    // Add loading AI message
+    const loadingId = Math.random().toString(36).substr(2, 9);
+    addMessage({ id: loadingId, content: '', type: 'ai', isLoading: true });
+
+    setLoading(true);
+
+    try {
+      const res = await fetch("http://localhost:4000/query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: `analytics ${userMessage}`, }),
+      });
+
+      const data = await res.json();
+
+      // Remove loading message
+      removeMessage(loadingId);
+
+      // Summarize in chat
+      const aiResponse =
+        data.result.length > 0
+          ? data.result
+            .map(
+              (item: any, idx: number) =>
+                `📄 Invoice ${idx + 1}  
+• Invoice ID: ${item.invoiceId}  
+• Enterprise: ${item.enterpriseName}  
+• Date: ${new Date(item.date).toLocaleDateString()}  
+• Amount: $${item.totalAmount}  
+• Status: ${item.paymentStatus}`
+            )
+            .join("\n\n") +
+          "\n\n👉 Detailed view available in the right-side panel."
+          : "No records found.";
+
+      addMessage({ content: aiResponse, type: "ai" });
+
+      // 🔹 Smart detection (or respect explicit type in query)
+      const typeMatch = userMessage.match(/type:(\w[\w-]*)/i);
+      const detectedType = typeMatch
+        ? (typeMatch[1] as ChartComponent["type"])
+        : detectComponentType(userMessage, data.result);
+
+      // 🔹 Send structured component to chatStore
+      addComponent({
+        type: detectedType,
+        title: userMessage,
+        data: data.result,
+      });
+
+      addChatHistory({
+        query: userMessage,
+        response: aiResponse,
+        result: data.result,
+        timestamp: new Date().toISOString(),
+      });
+
+      // Store raw result if needed
+      setResult(data.result);
+    } catch (error) {
+      removeMessage(loadingId);
+      addMessage({
+        content:
+          "I'm sorry, I encountered an error processing your request. Please try again.",
+        type: 'ai',
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <div className="chat-panel h-full flex flex-col">
@@ -141,7 +243,7 @@ export const ChatPanel = () => {
                       chatHistory.map((session) => (
                         <div
                           key={session.id}
-                          className="p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors group"
+                          className={`p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors group ${session.id === currentSession?.id ? 'bg-blue-100' : 'bg-white'}`}
                         >
                           <div className="flex items-start justify-between gap-2">
                             <button
@@ -174,9 +276,9 @@ export const ChatPanel = () => {
                 </ScrollArea>
               </SheetContent>
             </Sheet>
-            <Button 
+            <Button
               onClick={handleNewChat}
-              size="sm" 
+              size="sm"
               className="gap-2 analytics-gradient"
             >
               <Plus className="h-4 w-4" />
@@ -225,15 +327,15 @@ export const ChatPanel = () => {
       <div className="p-4 border-t border-border">
         <form onSubmit={handleSubmit} className="flex gap-2">
           <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
+            value={query}
+            onChange={(e: React.FormEvent<HTMLInputElement>) => setQuery(e.currentTarget.value)}
             placeholder="Ask about analytics data..."
             disabled={isLoading}
             className="flex-1"
           />
-          <Button 
-            type="submit" 
-            disabled={!input.trim() || isLoading}
+          <Button
+            type="submit"
+            disabled={!query.trim() || isLoading}
             size="icon"
             className="analytics-gradient"
           >

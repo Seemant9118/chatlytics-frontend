@@ -1,33 +1,28 @@
-import React from 'react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { EmployeeData } from '@/types/analytics';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 interface DataTableProps {
-  data: EmployeeData[];
+  data: any[]; // works with dynamic API response
   title: string;
 }
 
-const getDepartmentColor = (department: string) => {
-  switch (department.toLowerCase()) {
-    case 'sales':
-      return 'bg-blue-100 text-blue-800';
-    case 'engineering':
-      return 'bg-green-100 text-green-800';
-    case 'marketing':
-      return 'bg-purple-100 text-purple-800';
-    default:
-      return 'bg-gray-100 text-gray-800';
-  }
-};
-
-const getPerformanceColor = (performance: number) => {
-  if (performance >= 90) return 'text-green-600 font-semibold';
-  if (performance >= 80) return 'text-blue-600 font-medium';
-  return 'text-gray-600';
-};
-
 export const DataTable = ({ data, title }: DataTableProps) => {
+
+  // Collect all possible keys from the dataset (for dynamic headers)
+  const allKeys = Array.from(
+    new Set(
+      data.flatMap((item) =>
+        Object.keys(item).filter((k) => k !== "_id") // ignore internal IDs if needed
+      )
+    )
+  );
+
   return (
     <div>
       <h3 className="text-lg font-semibold mb-4">{title}</h3>
@@ -35,46 +30,41 @@ export const DataTable = ({ data, title }: DataTableProps) => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Employee</TableHead>
-              <TableHead>Department</TableHead>
-              <TableHead className="text-right">Performance</TableHead>
-              <TableHead className="text-right">Sales</TableHead>
-              <TableHead className="text-right">Satisfaction</TableHead>
+              {allKeys.map((key) => (
+                <TableHead key={key} className="capitalize">
+                  {key}
+                </TableHead>
+              ))}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {data.map((employee, index) => (
-              <TableRow key={index}>
-                <TableCell className="font-medium">{employee.name}</TableCell>
-                <TableCell>
-                  <Badge 
-                    variant="secondary" 
-                    className={getDepartmentColor(employee.department)}
-                  >
-                    {employee.department}
-                  </Badge>
-                </TableCell>
-                <TableCell className={`text-right ${getPerformanceColor(employee.performance)}`}>
-                  {employee.performance}%
-                </TableCell>
-                <TableCell className="text-right">
-                  {employee.sales ? `$${employee.sales.toLocaleString()}` : 'N/A'}
-                </TableCell>
-                <TableCell className="text-right">
-                  {employee.satisfaction ? (
-                    <div className="flex items-center justify-end gap-1">
-                      <span>{employee.satisfaction}</span>
-                      <span className="text-yellow-500">★</span>
-                    </div>
-                  ) : 'N/A'}
-                </TableCell>
+            {data.map((row, rowIndex) => (
+              <TableRow key={rowIndex}>
+                {allKeys.map((key) => (
+                  <TableCell key={key}>
+                    {Array.isArray(row[key]) ? (
+                      // Handle array fields like products
+                      <div className="space-y-1">
+                        {row[key].map((p: any, idx: number) => (
+                          <div key={idx} className="text-sm border-b last:border-0">
+                            {p.name ? `${p.name} (x${p.quantity})` : JSON.stringify(p)}
+                          </div>
+                        ))}
+                      </div>
+                    ) : typeof row[key] === "object" && row[key] !== null ? (
+                      JSON.stringify(row[key]) // stringify nested objects
+                    ) : (
+                      row[key] ?? "N/A" // fallback if missing
+                    )}
+                  </TableCell>
+                ))}
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </div>
       <div className="mt-4 text-sm text-muted-foreground">
-        Showing {data.length} employees sorted by performance score
+        Showing {data.length} records
       </div>
     </div>
   );

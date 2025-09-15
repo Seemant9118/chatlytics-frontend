@@ -1,7 +1,6 @@
-import React from 'react';
-import { BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { EmployeeData } from '@/types/analytics';
+import { Bar, CartesianGrid, BarChart as RechartsBarChart, XAxis, YAxis } from 'recharts';
 
 interface BarChartProps {
   data: EmployeeData[];
