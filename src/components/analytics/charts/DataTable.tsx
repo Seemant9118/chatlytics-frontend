@@ -8,17 +8,19 @@ import {
 } from "@/components/ui/table";
 
 interface DataTableProps {
-  data: any[]; // works with dynamic API response
+  data: any[] | { result?: any[] };
   title: string;
 }
 
 export const DataTable = ({ data, title }: DataTableProps) => {
+  // Normalize incoming data
+  const safeData = Array.isArray(data) ? data : (data ?? []);
 
-  // Collect all possible keys from the dataset (for dynamic headers)
+  // Collect all unique keys from dataset (excluding _id)
   const allKeys = Array.from(
     new Set(
-      data.flatMap((item) =>
-        Object.keys(item).filter((k) => k !== "_id") // ignore internal IDs if needed
+      safeData?.flatMap((item) =>
+        Object.keys(item).filter((k) => k !== "_id")
       )
     )
   );
@@ -38,23 +40,29 @@ export const DataTable = ({ data, title }: DataTableProps) => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {data.map((row, rowIndex) => (
+            {safeData.map((row, rowIndex) => (
               <TableRow key={rowIndex}>
                 {allKeys.map((key) => (
                   <TableCell key={key}>
                     {Array.isArray(row[key]) ? (
-                      // Handle array fields like products
                       <div className="space-y-1">
                         {row[key].map((p: any, idx: number) => (
-                          <div key={idx} className="text-sm border-b last:border-0">
-                            {p.name ? `${p.name} (x${p.quantity})` : JSON.stringify(p)}
+                          <div
+                            key={idx}
+                            className="text-sm border-b last:border-0"
+                          >
+                            {typeof p === "object"
+                              ? p.name
+                                ? `${p.name} (x${p.quantity ?? 1})`
+                                : JSON.stringify(p)
+                              : String(p)}
                           </div>
                         ))}
                       </div>
                     ) : typeof row[key] === "object" && row[key] !== null ? (
-                      JSON.stringify(row[key]) // stringify nested objects
+                      <pre className="text-xs">{JSON.stringify(row[key], null, 2)}</pre>
                     ) : (
-                      row[key] ?? "N/A" // fallback if missing
+                      row[key] ?? "N/A"
                     )}
                   </TableCell>
                 ))}
@@ -64,7 +72,7 @@ export const DataTable = ({ data, title }: DataTableProps) => {
         </Table>
       </div>
       <div className="mt-4 text-sm text-muted-foreground">
-        Showing {data.length} records
+        Showing {safeData.length} records
       </div>
     </div>
   );

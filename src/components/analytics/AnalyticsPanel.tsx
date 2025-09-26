@@ -8,16 +8,17 @@ import { DataTable } from './charts/DataTable';
 import { ChartComponent } from '@/types/analytics';
 
 const ChartRenderer = ({ component }: { component: ChartComponent }) => {
+
   const renderChart = () => {
     switch (component.type) {
       case 'bar-chart':
-        return <BarChart data={component.data} title={component.title} />;
+        return <BarChart data={component.data ?? []} title={component.title} config={component.config} />;
       case 'line-chart':
-        return <LineChart data={component.data} title={component.title} />;
+        return <LineChart data={component.data ?? []} title={component.title} config={component.config} />;
       case 'metric-card':
-        return <MetricCards data={component.data} title={component.title} />;
+        return <MetricCards data={component.data ?? []} title={component.title} />;
       case 'table':
-        return <DataTable data={component.data} title={component.title} />;
+        return <DataTable data={component.data ?? []} title={component.title} />;
       default:
         return null;
     }
@@ -57,7 +58,7 @@ export const AnalyticsPanel = () => {
                   Ready for Analytics
                 </h3>
                 <p className="text-muted-foreground max-w-md mx-auto">
-                  Charts and data visualizations will appear here as you interact with the AI assistant. 
+                  Charts and data visualizations will appear here as you interact with the AI assistant.
                   Start a conversation to see dynamic analytics come to life.
                 </p>
               </div>
@@ -70,7 +71,7 @@ export const AnalyticsPanel = () => {
                   {components.length} visualization{components.length !== 1 ? 's' : ''} generated
                 </p>
               </div>
-              
+
               <AnimatePresence>
                 {components.map((component: any) => (
                   <ChartRenderer key={component.id} component={component} />

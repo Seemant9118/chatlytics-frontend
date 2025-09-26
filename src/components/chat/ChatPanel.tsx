@@ -62,42 +62,6 @@ export const ChatPanel = () => {
     }
   }, [messages]);
 
-  //   e.preventDefault();
-  //   if (!input.trim() || isLoading) return;
-
-  //   const userMessage = input.trim();
-  //   setInput('');
-
-  //   // Add user message
-  //   addMessage({ content: userMessage, type: 'user' });
-
-  //   // Add loading AI message
-  //   const loadingId = Math.random().toString(36).substr(2, 9);
-  //   addMessage({ content: '', type: 'ai', isLoading: true });
-
-  //   setLoading(true);
-
-  //   try {
-  //     const response = await processPrompt(userMessage);
-
-  //     // Remove loading message and add actual response
-  //     const updatedMessages = messages.filter(m => !m.isLoading);
-  //     addMessage({ content: response.message, type: 'ai' });
-
-  //     // Add component if provided
-  //     if (response.component) {
-  //       addComponent(response.component);
-  //     }
-  //   } catch (error) {
-  //     addMessage({
-  //       content: "I'm sorry, I encountered an error processing your request. Please try again.",
-  //       type: 'ai'
-  //     });
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
-
   const handleNewChat = () => {
     startNewChat();
     setQuery('');
@@ -115,16 +79,18 @@ export const ChatPanel = () => {
   function detectComponentType(query: string, data: any): ChartComponent["type"] {
     const q = query.toLowerCase();
 
-    if (q.includes("trend") || q.includes("growth") || q.includes("over time")) {
+    if (q.includes("line")) {
+      // q.includes("trend") || q.includes("growth") || q.includes("over time") || more conditions
       return "line-chart";
     }
-    if (q.includes("distribution") || q.includes("compare") || q.includes("by ")) {
+    if ( q.includes("bar")) {
+      // q.includes("distribution") || q.includes("compare") || q.includes("by ") || more conditions
       return "bar-chart";
     }
     if (q.includes("list") || q.includes("show all") || Array.isArray(data)) {
       return "table";
     }
-    if (q.includes("total") || q.includes("summary") || typeof data === "number") {
+    if (q.includes("metric card")) {
       return "metric-card";
     }
 
@@ -138,59 +104,50 @@ export const ChatPanel = () => {
     const userMessage = query.trim();
     setQuery('');
 
-    // Add user message
+    // 1. Add user message
     addMessage({ content: userMessage, type: 'user' });
 
-    // Add loading AI message
-    const loadingId = Math.random().toString(36).substr(2, 9);
-    addMessage({ id: loadingId, content: '', type: 'ai', isLoading: true });
-
+    // 2. Add temporary "Analyzing..." message
+    addMessage({ content: "Analyzing...", type: "ai", isLoading: true });
     setLoading(true);
 
     try {
       const res = await fetch("http://localhost:4000/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: `analytics ${userMessage}`, }),
+        body: JSON.stringify({ query: `analytics ${userMessage}` }),
       });
 
       const data = await res.json();
 
-      // Remove loading message
-      removeMessage(loadingId);
+      // 3. Remove the "Analyzing..." message
+      removeMessage(messages);
 
-      // Summarize in chat
+      // 4. Generate AI response text
       const aiResponse =
-        data.result.length > 0
-          ? data.result
-            .map(
-              (item: any, idx: number) =>
-                `📄 Invoice ${idx + 1}  
-• Invoice ID: ${item.invoiceId}  
-• Enterprise: ${item.enterpriseName}  
-• Date: ${new Date(item.date).toLocaleDateString()}  
-• Amount: $${item.totalAmount}  
-• Status: ${item.paymentStatus}`
-            )
-            .join("\n\n") +
-          "\n\n👉 Detailed view available in the right-side panel."
-          : "No records found.";
+        data.result?.result?.length > 0
+          ? "✅ Record Found! Detailed view available in the right-side Analytics Dashboard."
+          : "⚠️ Oops! No records found.";
 
+      // 5. Add final AI response message
       addMessage({ content: aiResponse, type: "ai" });
 
-      // 🔹 Smart detection (or respect explicit type in query)
+      // 6. Detect chart type
       const typeMatch = userMessage.match(/type:(\w[\w-]*)/i);
       const detectedType = typeMatch
         ? (typeMatch[1] as ChartComponent["type"])
         : detectComponentType(userMessage, data.result);
 
-      // 🔹 Send structured component to chatStore
-      addComponent({
+      // 7. Add chart component to store
+      // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+      data.result?.result?.length > 0 && addComponent({
         type: detectedType,
         title: userMessage,
-        data: data.result,
+        data: data.result?.result || [],
+        config: data?.result?.chartConfig || {},
       });
 
+      // 8. Save chat history
       addChatHistory({
         query: userMessage,
         response: aiResponse,
@@ -198,19 +155,19 @@ export const ChatPanel = () => {
         timestamp: new Date().toISOString(),
       });
 
-      // Store raw result if needed
       setResult(data.result);
     } catch (error) {
-      removeMessage(loadingId);
+      console.error("❌ handleSubmit error:", error);
+      removeMessage(messages);
       addMessage({
-        content:
-          "I'm sorry, I encountered an error processing your request. Please try again.",
-        type: 'ai',
+        content: "I'm sorry, I encountered an error processing your request. Please try again.",
+        type: "ai",
       });
     } finally {
       setLoading(false);
     }
   }
+
 
   return (
     <div className="chat-panel h-full flex flex-col">

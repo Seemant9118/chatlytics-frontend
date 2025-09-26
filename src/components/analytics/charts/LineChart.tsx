@@ -1,65 +1,90 @@
-import React from 'react';
-import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { SalesData } from '@/types/analytics';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import {
+  CartesianGrid,
+  Line,
+  LineChart as RechartsLineChart,
+  XAxis,
+  YAxis
+} from "recharts";
+import { format } from "date-fns";
 
-interface LineChartProps {
-  data: SalesData[];
-  title: string;
-}
+export const LineChart = ({ data, title, config }) => {
 
-const chartConfig = {
-  revenue: {
-    label: "Revenue",
-    color: "hsl(var(--analytics-blue))",
-  },
-  target: {
-    label: "Target",
-    color: "hsl(var(--analytics-purple))",
-  },
-};
+  // normalize data: convert numbers & dates safely
+  const cleanData = data?.map((d) => {
+    const newEntry: any = { ...d };
 
-export const LineChart = ({ data, title }: LineChartProps) => {
+    // If X axis looks like a date string, convert to Date
+    if (config.xAxisKey && d[config.xAxisKey]) {
+      const val = d[config.xAxisKey];
+      if (!isNaN(Date.parse(val))) {
+        newEntry[config.xAxisKey] = new Date(val);
+      }
+    }
+
+    // Ensure numeric series values are numbers
+    config?.series?.forEach((s) => {
+      if (d[s.dataKey] !== undefined) {
+        newEntry[s.dataKey] = Number(d[s.dataKey]);
+      }
+    });
+
+    return newEntry;
+  });
+
+  // Formatter for X-axis
+  const formatXAxis = (value: any) => {
+    if (value instanceof Date) return format(value, "MMM dd");
+    return String(value);
+  };
+
+  // Formatter for Y-axis (currency if looks like amount/price, else plain number)
+  const formatYAxis = (value: number) => {
+    const label = config.series[0]?.label?.toLowerCase();
+    if (label?.includes("amount") || label?.includes("sales") || label?.includes("price")) {
+      return `₹${value.toLocaleString()}`;
+    }
+    return value;
+  };
+
   return (
     <div>
       <h3 className="text-lg font-semibold mb-4">{title}</h3>
-      <ChartContainer config={chartConfig} className="h-80">
-        <RechartsLineChart data={data}>
+      <ChartContainer config={config} className="h-80">
+        <RechartsLineChart data={cleanData}>
           <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-          <YAxis tick={{ fontSize: 12 }} />
+
+          {/* Dynamic X Axis */}
+          <XAxis
+            dataKey={config.xAxisKey}
+            tick={{ fontSize: 12 }}
+            tickFormatter={formatXAxis}
+            label={{ value: config?.xAxisKey, position: "insideBottom", offset: -5 }}
+          />
+
+          {/* Dynamic Y Axis */}
+          <YAxis
+            tick={{ fontSize: 12 }}
+            tickFormatter={formatYAxis}
+            label={{ value: config?.series?.map((s) => s.label).join(", "), angle: -90, position: "insideLeft" }}
+          />
+
           <ChartTooltip content={<ChartTooltipContent />} />
-          <Line 
-            type="monotone" 
-            dataKey="revenue" 
-            stroke="var(--color-revenue)"
-            strokeWidth={3}
-            dot={{ fill: "var(--color-revenue)", strokeWidth: 2, r: 4 }}
-          />
-          <Line 
-            type="monotone" 
-            dataKey="target" 
-            stroke="var(--color-target)"
-            strokeWidth={2}
-            strokeDasharray="5 5"
-            dot={{ fill: "var(--color-target)", strokeWidth: 2, r: 3 }}
-          />
+
+          {/* Dynamic series */}
+          {config?.series?.map((s) => (
+            <Line
+              key={s.dataKey}
+              type="monotone"
+              dataKey={s.dataKey}
+              stroke={s.color}
+              strokeWidth={2}
+              dot={{ fill: s.color, strokeWidth: 2, r: 3 }}
+              name={s.label}
+            />
+          ))}
         </RechartsLineChart>
       </ChartContainer>
-      <div className="mt-4 grid grid-cols-3 gap-4 text-sm">
-        <div className="text-center">
-          <div className="font-semibold text-lg">${data.reduce((sum, d) => sum + d.revenue, 0).toLocaleString()}</div>
-          <div className="text-muted-foreground">Total Revenue</div>
-        </div>
-        <div className="text-center">
-          <div className="font-semibold text-lg">${Math.max(...data.map(d => d.revenue)).toLocaleString()}</div>
-          <div className="text-muted-foreground">Peak Month</div>
-        </div>
-        <div className="text-center">
-          <div className="font-semibold text-lg">{Math.round(data.reduce((sum, d) => sum + (d.growth || 0), 0) / data.length)}%</div>
-          <div className="text-muted-foreground">Avg Growth</div>
-        </div>
-      </div>
     </div>
   );
 };

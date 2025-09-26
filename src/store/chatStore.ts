@@ -81,14 +81,14 @@ export const useChatStore = create<ChatState & { addChatHistory: (entry: ChatHis
         });
       },
 
-      removeMessage: (messageId: string) => {
+      removeMessage: () => {
         set((state) => {
           if (!state.currentSession) return state;
 
           const updatedSession = {
             ...state.currentSession,
             messages: state.currentSession.messages.filter(
-              (msg) => msg.id !== messageId
+              (msg) => !msg.isLoading // ✅ keep only non-loading messages
             ),
             lastUpdated: new Date(),
           };

@@ -9,6 +9,7 @@ export interface Message {
 export interface ChartComponent {
   id: string;
   type: 'bar-chart' | 'line-chart' | 'table' | 'metric-card';
+  config: any;
   title: string;
   data: any;
   timestamp: Date;
